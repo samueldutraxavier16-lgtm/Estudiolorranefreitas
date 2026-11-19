@@ -35,7 +35,7 @@ export const services: {
     name: 'Banho de gel',
     description:
       'Uma camada de gel sobre a unha natural que dá resistência, uniformidade e um brilho que dura semanas.',
-    photo: { src: 'trabalho-2', alt: 'Unhas em gel com acabamento brilhante em tom rosé', position: '50% 40%' },
+    photo: { src: 'arte-rosa', alt: 'Banho de gel em unhas curtas, tons de rosa com brilho', position: '50% 45%' },
   },
   {
     name: 'Esmaltação em gel',
@@ -46,8 +46,8 @@ export const services: {
   {
     name: 'Nail art',
     description:
-      'Detalhes feitos à mão, como francesinhas diagonais e linhas finas, pensados para combinar com você.',
-    photo: { src: 'arte-marrom', alt: 'Unhas amendoadas em tons de marrom com detalhe de linha dourada', position: '50% 35%' },
+      'Detalhes feitos à mão, como pedrarias, desenhos e francesinhas, pensados para combinar com você.',
+    photo: { src: 'arte-pink', alt: 'Nail art pink com unhas brancas e pedrarias douradas', position: '50% 45%' },
   },
 ];
 
