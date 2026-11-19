@@ -10,7 +10,7 @@
 import { JOIN } from './timeline';
 
 type Rect = { sx: number; sy: number; w: number; h: number; x: number; y: number };
-type Frame = { src: string; layers: Rect[]; join: [number, number] };
+type Frame = { src: string; layers: Rect[]; join: [number, number]; fit?: { gel: [number, number]; top: [number, number] } };
 type Meta = { width: number; height: number; frames: Frame[] };
 
 const BASE = 'media/unha3d/';
@@ -261,11 +261,14 @@ export class NailFrames {
     // junção: gel desce GEL_SHARE·v; top coat desce (1 + GEL_SHARE)·v
     const kg = easeOut(smooth(JOIN.gel[0], JOIN.gel[1], p));
     const kt = easeOut(smooth(JOIN.top[0], JOIN.top[1], p));
-    const [jx, jy] = fr.join;
+    // deslocamentos exatos de encaixe (scripts/fit-nail-layers.py)
+    const fit = fr.fit ?? { gel: [fr.join[0] * GEL_SHARE, fr.join[1] * GEL_SHARE], top: [fr.join[0] * (1 + GEL_SHARE), fr.join[1] * (1 + GEL_SHARE)] };
     const breathe = Math.sin(this.t * 1.4) * 4 * live;
+    // o top coat acompanha o gel e depois desce o que falta até encaixar nele
+    const gx = fit.gel[0] * kg, gy = fit.gel[1] * kg;
     const shifts = [
-      [jx * (GEL_SHARE * kg + kt), jy * (GEL_SHARE * kg + kt) - breathe * 1.6 * (1 - kt)],
-      [jx * GEL_SHARE * kg, jy * GEL_SHARE * kg - breathe * (1 - kg)],
+      [gx + (fit.top[0] - fit.gel[0]) * kt, gy + (fit.top[1] - fit.gel[1]) * kt - breathe * 1.6 * (1 - kt)],
+      [gx, gy - breathe * (1 - kg)],
       [0, 0],
     ];
 

@@ -41,21 +41,21 @@ export const services: {
     name: 'Esmaltação em gel',
     description:
       'Cor com acabamento espelhado e secagem na cabine, para sair do atendimento sem medo de borrar.',
-    photo: { src: 'trabalho-3', alt: 'Mão com unhas em gel lilás e rosé', position: '50% 55%' },
+    photo: { src: 'arte-vinho', alt: 'Unhas em gel cor vinho com acabamento brilhante', position: '50% 55%' },
   },
   {
     name: 'Nail art',
     description:
       'Detalhes feitos à mão, como francesinhas diagonais e linhas finas, pensados para combinar com você.',
-    photo: { src: 'trabalho-4', alt: 'Detalhe de francesinha diagonal lilás com linha branca', position: '50% 60%' },
+    photo: { src: 'arte-marrom', alt: 'Unhas amendoadas em tons de marrom com detalhe de linha dourada', position: '50% 35%' },
   },
 ];
 
 export const gallery: Photo[] = [
-  { src: 'trabalho-1', alt: 'Unhas em gel lilás e rosé com francesinha diagonal', position: '50% 45%' },
+  { src: 'arte-pink', alt: 'Unhas pink com detalhes brancos e pedrarias douradas', position: '50% 45%' },
+  { src: 'arte-marrom', alt: 'Unhas amendoadas em tons de marrom com linha dourada', position: '50% 30%' },
+  { src: 'arte-vinho', alt: 'Unhas em gel cor vinho, curtas e brilhantes', position: '45% 55%' },
   { src: 'trabalho-4', alt: 'Close das unhas rosé com linha branca e ponta lilás', position: '50% 62%' },
-  { src: 'trabalho-3', alt: 'Mão inteira com combinação de lilás e rosé', position: '50% 60%' },
-  { src: 'trabalho-2', alt: 'Unhas rosé com francesinha diagonal em lilás', position: '50% 40%' },
 ];
 
 export const galleryVideo = {
