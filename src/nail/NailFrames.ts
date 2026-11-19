@@ -39,8 +39,6 @@ export class NailFrames {
   // ângulo (índice de quadro contínuo)
   private frame = 0;
   private frameVel = 0;
-  private autoDir = -1;
-  private idleFor = 0;
   // deslocamento por arraste (volta com mola) e por hover
   private off = { x: 0, y: 0, vx: 0, vy: 0 };
   private hover = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -103,7 +101,6 @@ export class NailFrames {
     const el = this.container;
     const down = (e: PointerEvent) => {
       this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-      this.idleFor = 0;
       el.classList.add('is-dragging');
       if (e.pointerType === 'mouse') el.setPointerCapture(e.pointerId);
     };
@@ -122,7 +119,6 @@ export class NailFrames {
       // mover: segue o dedo/mouse com resistência
       this.off.x += dx * 0.35;
       if (e.pointerType === 'mouse') this.off.y += dy * 0.35; // no toque o vertical rola a página
-      this.idleFor = 0;
     };
     const up = () => {
       this.drag = null;
@@ -193,7 +189,6 @@ export class NailFrames {
   /* ---------------- animação ---------------- */
   private tick(dt: number) {
     this.t += dt;
-    const live = this.reduced ? 0 : 1;
     this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : clamp(dt * 7));
 
     const n = this.meta?.frames.length ?? 1;
@@ -201,11 +196,7 @@ export class NailFrames {
       // inércia do giro
       this.frame += this.frameVel;
       this.frameVel *= Math.pow(0.04, dt);
-      this.idleFor += dt;
-      // giro automático lento (como a mesa giratória do vídeo) quando ninguém mexe
-      if (live && this.idleFor > 2.5 && Math.abs(this.frameVel) < 0.05) {
-        this.frame += this.autoDir * dt * 5;
-      }
+      // a unha só gira quando a pessoa arrasta (sem giro automático)
       // mola: volta para o centro
       const k = 9;
       this.off.vx += (-this.off.x * k - this.off.vx * 5) * dt;
@@ -217,11 +208,9 @@ export class NailFrames {
     if (this.frame < 0) {
       this.frame = 0;
       this.frameVel = Math.abs(this.frameVel) * 0.3;
-      this.autoDir = 1;
     } else if (this.frame > n - 1) {
       this.frame = n - 1;
       this.frameVel = -Math.abs(this.frameVel) * 0.3;
-      this.autoDir = -1;
     }
     this.off.x = clamp(this.off.x, -120, 120);
     this.off.y = clamp(this.off.y, -90, 90);
