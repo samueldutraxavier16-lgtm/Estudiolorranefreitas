@@ -3,35 +3,19 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { messages, stages, whatsapp } from '../content';
 import { WhatsAppIcon } from './Icons';
-import { STAGE_STARTS } from '../three/timeline';
+import { STAGE_STARTS } from '../nail/timeline';
 
 gsap.registerPlugin(ScrollTrigger);
 ScrollTrigger.config({ ignoreMobileResize: true });
 
-type Mode = 'checking' | '3d' | 'static';
-
-function supportsWebGL() {
-  try {
-    const c = document.createElement('canvas');
-    return !!(c.getContext('webgl2') || c.getContext('webgl'));
-  } catch {
-    return false;
-  }
-}
-
-function detectQuality(): 'high' | 'low' {
-  const nav = navigator as Navigator & { deviceMemory?: number };
-  const cores = nav.hardwareConcurrency ?? 8;
-  const mem = nav.deviceMemory ?? 8;
-  return cores <= 4 || mem <= 3 ? 'low' : 'high';
-}
+type Mode = '3d' | 'static';
 
 /**
  * A unha 3D logo abaixo do hero: camadas que descem e se encaixam
  * conforme a rolagem, com o texto das etapas ao lado.
  */
 export default function Process() {
-  const [mode, setMode] = useState<Mode>('checking');
+  const [mode, setMode] = useState<Mode>('3d');
   const [active, setActive] = useState(0);
   const [done, setDone] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -39,15 +23,13 @@ export default function Process() {
   const hostRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<HTMLOListElement>(null);
 
-  useEffect(() => setMode(supportsWebGL() ? '3d' : 'static'), []);
-
   useEffect(() => {
     if (mode !== '3d') return;
     const track = trackRef.current!;
     const host = hostRef.current!;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const bars = Array.from(stepsRef.current?.querySelectorAll<HTMLElement>('.step-bar i') ?? []);
-    let scene: import('../three/NailScene').NailScene | null = null;
+    let scene: import('../nail/NailFrames').NailFrames | null = null;
     let st: ScrollTrigger | null = null;
     let io: IntersectionObserver | null = null;
     let ro: ResizeObserver | null = null;
@@ -68,10 +50,9 @@ export default function Process() {
 
     const load = async () => {
       try {
-        const { NailScene } = await import('../three/NailScene');
+        const { NailFrames } = await import('../nail/NailFrames');
         if (cancelled) return;
-        scene = new NailScene(host, detectQuality(), reduced);
-        setLoaded(true);
+        scene = new NailFrames(host, reduced, () => setLoaded(true));
         st = ScrollTrigger.create({
           trigger: track,
           start: 'top top',
@@ -84,8 +65,9 @@ export default function Process() {
         io.observe(track);
         ro = new ResizeObserver(() => scene?.resize());
         ro.observe(host);
+        await scene.load();
       } catch (err) {
-        console.error('Experiência 3D indisponível, usando versão estática.', err);
+        console.error('Unha interativa indisponível, usando imagem.', err);
         if (!cancelled) setMode('static');
       }
     };

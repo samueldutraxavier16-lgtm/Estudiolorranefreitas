@@ -7,7 +7,7 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       output: {
-        manualChunks: { three: ['three'], gsap: ['gsap'] },
+        manualChunks: { gsap: ['gsap'] },
       },
     },
   },

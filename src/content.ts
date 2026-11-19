@@ -67,17 +67,17 @@ export const galleryVideo = {
 export const stages = [
   {
     n: 'I',
-    title: 'A base',
-    text: 'A unha natural preparada: cutícula afastada, superfície lixada e formato alinhado.',
+    title: 'A unha natural',
+    text: 'A base de tudo: a sua unha, preparada com cuidado, cutícula afastada e superfície alinhada.',
   },
   {
     n: 'II',
-    title: 'A cor',
-    text: 'A cor e os detalhes escolhidos por você, aplicados finos e uniformes.',
+    title: 'O gel rosa',
+    text: 'O banho de gel translúcido cobre a unha, dá resistência e uma cor rosada natural.',
   },
   {
     n: 'III',
-    title: 'O gel',
-    text: 'A camada de gel que sela tudo, dá resistência e deixa a unha com brilho de vidro.',
+    title: 'O top coat',
+    text: 'A camada final de brilho, que protege tudo e deixa a unha com acabamento de vidro.',
   },
 ] as const;
