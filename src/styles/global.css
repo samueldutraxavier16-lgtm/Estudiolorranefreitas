@@ -1584,3 +1584,61 @@ body {
     margin-top: 64px;
   }
 }
+
+/* celular: a moldura da unha ocupa só o espaço que sobra, o texto e o botão sempre cabem
+   (em telas baixas, como iPhone 8/SE dentro do WhatsApp, o botão era cortado) */
+@media (max-width: 899px) {
+  .story-grid {
+    grid-template-rows: minmax(0, 1fr) auto;
+    height: 100%;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  .story-stage {
+    margin-top: 64px;
+    min-height: 0;
+  }
+  .story-copy {
+    padding-top: 14px;
+  }
+  .story-copy .eyebrow {
+    font-size: 11px;
+  }
+  .story-steps {
+    margin-top: 10px;
+  }
+  .story-cta {
+    margin-top: 12px;
+  }
+}
+@media (max-width: 899px) and (max-height: 720px) {
+  .story-title {
+    font-size: 26px;
+  }
+  .story-steps h3 {
+    font-size: 21px;
+  }
+  .story-steps p {
+    font-size: 13.5px;
+  }
+  .story-cta .btn {
+    --h: 46px;
+  }
+  .story-cta .btn svg {
+    width: 34px;
+    height: 34px;
+    padding: 9px;
+  }
+}
+@media (max-width: 899px) and (max-height: 600px) {
+  .story-copy .eyebrow {
+    display: none;
+  }
+  .story-title {
+    font-size: 22px;
+    margin-top: 0;
+  }
+  .story-steps p {
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+}
