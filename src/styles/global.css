@@ -1,8 +1,7 @@
-@import '@fontsource-variable/bodoni-moda/index.css';
+@import '@fontsource/marcellus/index.css';
 @import '@fontsource/cinzel/500.css';
 @import '@fontsource/cinzel/600.css';
-@import '@fontsource-variable/bodoni-moda/wght-italic.css';
-@import '@fontsource-variable/instrument-sans/index.css';
+@import '@fontsource-variable/jost/index.css';
 
 /* ------------------------------------------------------------------
    Tokens: paleta tirada da medalha rosé gold e do espaço físico
@@ -22,8 +21,8 @@
   --cream-on-dark: #efe4d8;
   --muted-on-dark: #b3a296;
 
-  --serif: 'Bodoni Moda Variable', 'Didot', 'Bodoni 72', Georgia, serif;
-  --sans: 'Instrument Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Marcellus', 'Optima', Georgia, serif;
+  --sans: 'Jost Variable', 'Futura', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --gutter: clamp(16px, 5vw, 64px);
   --max: 1280px;
@@ -1787,4 +1786,77 @@ body {
   .location-place {
     font-size: clamp(40px, 12vw, 56px);
   }
+}
+
+
+/* ---------- Tipografia final: Marcellus (títulos, clássica como o letreiro) + Jost (textos) ---------- */
+body {
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+/* Marcellus não tem itálico: o destaque vira cor, sem itálico falso */
+em,
+.display em,
+.h2 em,
+.hero-name .line-2,
+.location-place em,
+.principles h3,
+.step-n,
+.stage-n,
+.hero-ribbon,
+.process-outro p em {
+  font-style: normal !important;
+}
+.display,
+.h2,
+.story-title,
+.service h3,
+.story-steps h3,
+.location-place,
+.process-outro p {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.h2 {
+  line-height: 1.12;
+}
+.hero-name {
+  letter-spacing: -0.01em;
+}
+.hero-name .line-2 {
+  padding-left: 0.35em;
+}
+.eyebrow,
+.btn,
+.wa-float,
+.menu-btn,
+.footer h4 {
+  font-weight: 500;
+}
+.lede,
+.hero-tag,
+.service p,
+.principles p,
+.story-steps p {
+  font-weight: 400;
+}
+.text-link {
+  font-weight: 500;
+}
+@media (min-width: 900px) {
+  .hero-name {
+    font-size: clamp(84px, 9.6vw, 150px);
+  }
+}
+@media (max-width: 899px) {
+  .hero-name {
+    font-size: clamp(56px, 15vw, 120px);
+  }
+}
+/* números dos serviços na fonte de texto (na Marcellus o "01" parece "OI") */
+.service-num {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.18em;
 }
