@@ -59,8 +59,8 @@ export const gallery: Photo[] = [
 ];
 
 export const galleryVideo = {
-  src: '/media/trabalho-video.mp4',
-  poster: '/media/trabalho-1-768.webp',
+  src: 'media/trabalho-video.mp4',
+  poster: 'media/trabalho-1-768.webp',
   alt: 'Vídeo mostrando o resultado de unhas em gel lilás e rosé',
 };
 

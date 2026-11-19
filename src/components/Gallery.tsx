@@ -125,7 +125,7 @@ export default function Gallery() {
             {current.kind === 'video' ? (
               <video src={galleryVideo.src} poster={galleryVideo.poster} controls autoPlay muted loop playsInline aria-label={galleryVideo.alt} />
             ) : (
-              <img src={`/media/${gallery[current.index].src}.jpg`} alt={gallery[current.index].alt} />
+              <img src={`media/${gallery[current.index].src}.jpg`} alt={gallery[current.index].alt} />
             )}
           </div>
           <div className="lightbox-bottom">

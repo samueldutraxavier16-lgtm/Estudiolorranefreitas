@@ -19,8 +19,8 @@ export default function About() {
       <div className="wrap about-grid">
         <figure className="about-medal reveal">
           <picture>
-            <source type="image/webp" srcSet="/media/logo-medalha-480.webp 480w, /media/logo-medalha-768.webp 704w" sizes="(min-width: 900px) 420px, 90vw" />
-            <img src="/media/logo-medalha.jpg" alt="Medalha rosé gold com o monograma LF e a frase Beleza, Cuidado, Detalhes" loading="lazy" decoding="async" width={704} height={646} />
+            <source type="image/webp" srcSet="media/logo-medalha-480.webp 480w, media/logo-medalha-768.webp 704w" sizes="(min-width: 900px) 420px, 90vw" />
+            <img src="media/logo-medalha.jpg" alt="Medalha rosé gold com o monograma LF e a frase Beleza, Cuidado, Detalhes" loading="lazy" decoding="async" width={704} height={646} />
           </picture>
           <figcaption>A marca do Espaço Lorrane Freitas</figcaption>
         </figure>

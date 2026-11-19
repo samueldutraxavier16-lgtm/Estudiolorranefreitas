@@ -8,9 +8,9 @@ export default function Hero() {
         <div className="hero-photo-col">
           <div className="hero-photo" data-hero-photo>
             <picture>
-              <source type="image/webp" srcSet="/media/lorrane-480.webp 480w, /media/lorrane-768.webp 768w" sizes="(min-width: 900px) 42vw, 100vw" />
+              <source type="image/webp" srcSet="media/lorrane-480.webp 480w, media/lorrane-768.webp 768w" sizes="(min-width: 900px) 42vw, 100vw" />
               <img
-                src="/media/lorrane.jpg"
+                src="media/lorrane.jpg"
                 alt="Lorrane Freitas sorrindo no seu espaço de beleza, com o letreiro da marca ao fundo"
                 width={768}
                 height={1364}

@@ -12,12 +12,12 @@ export default function Picture({ src, alt, position, sizes = '100vw', eager, cl
     <picture>
       <source
         type="image/webp"
-        srcSet={`/media/${src}-480.webp 480w, /media/${src}-768.webp 768w`}
+        srcSet={`media/${src}-480.webp 480w, media/${src}-768.webp 768w`}
         sizes={sizes}
       />
       <img
         className={className}
-        src={`/media/${src}.jpg`}
+        src={`media/${src}.jpg`}
         alt={alt}
         loading={eager ? 'eager' : 'lazy'}
         decoding="async"
