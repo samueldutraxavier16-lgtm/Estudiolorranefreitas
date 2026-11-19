@@ -56,8 +56,10 @@ export default function Process() {
         st = ScrollTrigger.create({
           trigger: track,
           // sem travar a tela: a unha se forma enquanto a seção passa normalmente
-          start: 'top 80%',
-          end: 'bottom 60%',
+          // a moldura fica fixa e os textos das etapas sobem: a unha se forma nesse trecho
+          start: () => (window.innerWidth >= 900 ? 'top 15%' : 'top 64px'),
+          end: 'bottom bottom',
+          invalidateOnRefresh: true,
           scrub: reduced ? false : true,
           onUpdate: (self) => onProgress(self.progress),
         });
