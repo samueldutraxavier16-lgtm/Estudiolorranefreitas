@@ -1548,3 +1548,39 @@ body {
   height: 100%;
   object-fit: cover;
 }
+
+/* moldura de estúdio da unha: mesmo fundo do vídeo, para o quadro se fundir */
+.story-stage {
+  border-radius: 28px;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #aeb2b6 0%, #bcc0c4 25%, #c7cbd0 50%, #e2e4e6 72%, #e2e1e4 100%);
+  box-shadow: 0 30px 60px -40px rgba(42, 32, 28, 0.45);
+}
+.story-glow {
+  display: none;
+}
+.story-canvas {
+  inset: 0 !important;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.35) 8%, #000 24%, #000 76%, rgba(0,0,0,.35) 92%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.35) 8%, #000 24%, #000 76%, rgba(0,0,0,.35) 92%, transparent 100%);
+}
+.story-hint {
+  color: #4a4f55;
+  top: 16px;
+  z-index: 2;
+}
+@media (min-width: 900px) {
+  .story-stage {
+    height: calc(100svh - 120px);
+    margin-top: 48px;
+  }
+  .story-hint {
+    top: auto;
+    bottom: 18px;
+  }
+}
+@media (max-width: 899px) {
+  .story-stage {
+    margin-top: 64px;
+  }
+}

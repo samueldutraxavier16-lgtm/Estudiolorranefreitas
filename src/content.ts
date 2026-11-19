@@ -67,17 +67,17 @@ export const galleryVideo = {
 export const stages = [
   {
     n: 'I',
-    title: 'A unha natural',
-    text: 'A base de tudo: a sua unha, preparada com cuidado, cutícula afastada e superfície alinhada.',
+    title: 'As três camadas',
+    text: 'Unha natural, gel rosa translúcido e top coat de brilho: cada uma com a sua função.',
   },
   {
     n: 'II',
-    title: 'O gel rosa',
-    text: 'O banho de gel translúcido cobre a unha, dá resistência e uma cor rosada natural.',
+    title: 'O encaixe',
+    text: 'O gel se funde à unha natural e o top coat sela tudo por cima, sem bolhas nem desníveis.',
   },
   {
     n: 'III',
-    title: 'O top coat',
-    text: 'A camada final de brilho, que protege tudo e deixa a unha com acabamento de vidro.',
+    title: 'O resultado',
+    text: 'Uma unha só, resistente, rosada e com acabamento de vidro, que continua parecendo sua.',
   },
 ] as const;

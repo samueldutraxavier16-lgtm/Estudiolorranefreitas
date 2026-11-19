@@ -140,7 +140,7 @@ export default function Process() {
               <div className="story-canvas" ref={hostRef} />
               {!loaded && <span className="story-loading">Carregando</span>}
               <span className="story-hint" aria-hidden="true">
-                <span className="hint-touch">Arraste para girar</span><span className="hint-desk">Arraste para girar · role para juntar as camadas</span>
+                <span className="hint-touch">Role para juntar as camadas</span><span className="hint-desk">Role para juntar as camadas · arraste para mover</span>
               </span>
             </div>
           </div>

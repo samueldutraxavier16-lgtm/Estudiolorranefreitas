@@ -1,79 +1,50 @@
 /* ==================================================================
-   Unha "3D" feita com os quadros reais do vídeo de referência
-   (giro de câmera em volta da unha). Cada quadro tem as 3 camadas
-   recortadas com transparência (scripts/process-nail-video.py).
+   Unha das camadas se juntando, feita com os quadros reais do vídeo
+   de referência (media-src/unha-camadas.mp4 -> scripts/extract-nail-merge.sh).
 
-   - arrastar na horizontal: gira (troca o ângulo / quadro)
-   - arrastar e passar o mouse: move a unha para os lados, cima e baixo
-   - rolar a página: o gel e o top coat descem e se juntam na unha
+   - rolar a página: avança o vídeo quadro a quadro (as camadas descem,
+     se encaixam e a unha gira até ficar de frente)
+   - passar o mouse / arrastar: move a unha para os lados, cima e baixo
 =================================================================== */
-import { JOIN } from './timeline';
 
-type Rect = { sx: number; sy: number; w: number; h: number; x: number; y: number };
-type Frame = { src: string; layers: Rect[]; join: [number, number]; fit?: { gel: [number, number]; top: [number, number] } };
-type Meta = { width: number; height: number; frames: Frame[] };
-
-const BASE = 'media/unha3d/';
-const GEL_SHARE = 0.85; // fração do vetor de separação que leva o gel até a unha
+const BASE = 'media/unha-camadas/';
+const COUNT = 67;
+const FRAME_W = 640;
+const FRAME_H = 704;
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-const smooth = (e0: number, e1: number, x: number) => {
-  const t = clamp((x - e0) / (e1 - e0));
-  return t * t * (3 - 2 * t);
-};
-const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
 export class NailFrames {
   private canvas = document.createElement('canvas');
   private ctx = this.canvas.getContext('2d')!;
-  private meta!: Meta;
-  private images: (HTMLImageElement | null)[] = [];
+  private images: (HTMLImageElement | null)[] = new Array(COUNT).fill(null);
   private raf = 0;
   private running = false;
   private disposed = false;
   private last = performance.now();
   private t = 0;
-
   private progress = 0;
   private smoothP = 0;
-  // ângulo (índice de quadro contínuo)
-  private frame = 0;
-  private frameVel = 0;
-  // deslocamento por arraste (volta com mola) e por hover
   private off = { x: 0, y: 0, vx: 0, vy: 0 };
   private hover = { x: 0, y: 0, tx: 0, ty: 0 };
   private drag: { id: number; x: number; y: number } | null = null;
   private cleanup: (() => void)[] = [];
   private dpr = 1;
   private size = { w: 1, h: 1 };
-  private sparkles = Array.from({ length: 26 }, () => ({
-    x: Math.random(),
-    y: Math.random(),
-    r: 0.6 + Math.random() * 1.4,
-    s: 0.2 + Math.random() * 0.6,
-    p: Math.random() * Math.PI * 2,
-  }));
 
   constructor(private container: HTMLElement, private reduced: boolean, private onReady?: () => void) {
     this.canvas.setAttribute('role', 'img');
     this.canvas.setAttribute(
       'aria-label',
-      'Unha com as três camadas do banho de gel: unha natural, gel rosa e top coat. Arraste para girar.',
+      'Unha com as três camadas do banho de gel (unha natural, gel rosa e top coat) se juntando conforme a página rola.',
     );
     container.appendChild(this.canvas);
     this.bindPointer();
     this.resize();
   }
 
-  /** Carrega os dados e as imagens. Mostra o primeiro quadro assim que ele chega. */
+  /** Carrega o primeiro quadro logo; o resto em lotes. */
   async load() {
-    const res = await fetch(BASE + 'meta.json');
-    if (!res.ok) throw new Error('meta.json indisponível');
-    this.meta = await res.json();
-    const n = this.meta.frames.length;
-    this.images = new Array(n).fill(null);
-    this.frame = Math.round(n * 0.74); // começa num ângulo em que a unha aparece bem
-    const order = [this.frame, ...Array.from({ length: n }, (_, i) => i).filter((i) => i !== this.frame)];
     const loadOne = (i: number) =>
       new Promise<void>((resolve) => {
         const img = new Image();
@@ -83,20 +54,21 @@ export class NailFrames {
           resolve();
         };
         img.onerror = () => resolve();
-        img.src = BASE + this.meta.frames[i].src;
+        img.src = `${BASE}f${String(i + 1).padStart(3, '0')}.webp`;
       });
-    await loadOne(order[0]);
+    await loadOne(0);
     if (this.disposed) return;
+    if (!this.images[0]) throw new Error('quadros da unha indisponíveis');
     this.onReady?.();
     this.draw();
-    // o resto em paralelo, em lotes pequenos
-    for (let k = 1; k < order.length; k += 6) {
-      await Promise.all(order.slice(k, k + 6).map(loadOne));
+    const rest = Array.from({ length: COUNT - 1 }, (_, i) => i + 1);
+    for (let k = 0; k < rest.length; k += 8) {
+      await Promise.all(rest.slice(k, k + 8).map(loadOne));
       if (this.disposed) return;
+      if (!this.running) this.draw();
     }
   }
 
-  /* ---------------- interação ---------------- */
   private bindPointer() {
     const el = this.container;
     const down = (e: PointerEvent) => {
@@ -109,16 +81,10 @@ export class NailFrames {
       this.hover.tx = ((e.clientX - r.left) / r.width - 0.5) * 2;
       this.hover.ty = ((e.clientY - r.top) / r.height - 0.5) * 2;
       if (!this.drag || this.drag.id !== e.pointerId) return;
-      const dx = e.clientX - this.drag.x;
-      const dy = e.clientY - this.drag.y;
+      this.off.x += (e.clientX - this.drag.x) * 0.4;
+      if (e.pointerType === 'mouse') this.off.y += (e.clientY - this.drag.y) * 0.4;
       this.drag.x = e.clientX;
       this.drag.y = e.clientY;
-      // girar: 1 quadro a cada ~7px
-      this.frameVel = -dx / 7;
-      this.frame += this.frameVel;
-      // mover: segue o dedo/mouse com resistência
-      this.off.x += dx * 0.35;
-      if (e.pointerType === 'mouse') this.off.y += dy * 0.35; // no toque o vertical rola a página
     };
     const up = () => {
       this.drag = null;
@@ -142,7 +108,6 @@ export class NailFrames {
     });
   }
 
-  /* ---------------- API ---------------- */
   setProgress(p: number) {
     this.progress = clamp(p);
     if (this.reduced) this.smoothP = this.progress;
@@ -173,7 +138,6 @@ export class NailFrames {
   resize() {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
-    // ignora a barra de endereço do celular aparecendo/sumindo
     if (this.lastW && Math.abs(w - this.lastW) < 2 && Math.abs(h - this.lastH) < 80) return;
     this.lastW = w;
     this.lastH = h;
@@ -186,113 +150,52 @@ export class NailFrames {
     this.draw();
   }
 
-  /* ---------------- animação ---------------- */
   private tick(dt: number) {
     this.t += dt;
-    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : clamp(dt * 7));
-
-    const n = this.meta?.frames.length ?? 1;
+    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : clamp(dt * 8));
     if (!this.drag) {
-      // inércia do giro
-      this.frame += this.frameVel;
-      this.frameVel *= Math.pow(0.04, dt);
-      // a unha só gira quando a pessoa arrasta (sem giro automático)
-      // mola: volta para o centro
       const k = 9;
       this.off.vx += (-this.off.x * k - this.off.vx * 5) * dt;
       this.off.vy += (-this.off.y * k - this.off.vy * 5) * dt;
       this.off.x += this.off.vx * dt;
       this.off.y += this.off.vy * dt;
     }
-    // limites do giro (o vídeo não dá a volta completa): rebate nas pontas
-    if (this.frame < 0) {
-      this.frame = 0;
-      this.frameVel = Math.abs(this.frameVel) * 0.3;
-    } else if (this.frame > n - 1) {
-      this.frame = n - 1;
-      this.frameVel = -Math.abs(this.frameVel) * 0.3;
-    }
-    this.off.x = clamp(this.off.x, -120, 120);
-    this.off.y = clamp(this.off.y, -90, 90);
+    this.off.x = clamp(this.off.x, -110, 110);
+    this.off.y = clamp(this.off.y, -26, 26);
     this.hover.x += (this.hover.tx - this.hover.x) * clamp(dt * 3);
     this.hover.y += (this.hover.ty - this.hover.y) * clamp(dt * 3);
   }
 
-  private nearestLoaded(i: number) {
-    if (this.images[i]) return i;
-    for (let d = 1; d < this.images.length; d++) {
-      if (this.images[i - d]) return i - d;
-      if (this.images[i + d]) return i + d;
+  private frameAt(p: number) {
+    // o vídeo termina um pouco antes do fim da rolagem: a unha pronta fica um tempo na tela
+    const i = Math.round(clamp(p / 0.88) * (COUNT - 1));
+    if (this.images[i]) return this.images[i];
+    for (let d = 1; d < COUNT; d++) {
+      if (this.images[i - d]) return this.images[i - d];
+      if (this.images[i + d]) return this.images[i + d];
     }
-    return -1;
+    return null;
   }
 
   private draw() {
     const { ctx, canvas, size } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!this.meta) return;
-    const idx = this.nearestLoaded(Math.round(this.frame));
-    if (idx < 0) return;
-    const fr = this.meta.frames[idx];
-    const img = this.images[idx]!;
-    const p = this.smoothP;
+    const img = this.frameAt(this.smoothP);
+    if (!img) return;
     const live = this.reduced ? 0 : 1;
-
-    // encaixa a peça na área disponível
-    const M = this.meta;
-    const scale = Math.min((size.w * 0.92) / M.width, (size.h * 0.86) / M.height);
-    const floatY = Math.sin(this.t * 0.9) * 6 * live;
-    const floatX = Math.sin(this.t * 0.5) * 4 * live;
-    const ox = (size.w - M.width * scale) / 2 + this.off.x + this.hover.x * 12 + floatX;
-    const oy = (size.h - M.height * scale) / 2 + this.off.y + this.hover.y * 8 + floatY;
-
-    // partículas brilhantes ao fundo, como no vídeo
+    // altura toda do quadro = altura da moldura (o fundo do vídeo continua no fundo da moldura)
+    // um pouco maior que a moldura: ao mover, as bordas do quadro nunca aparecem
+    // cobre a altura, mas sem cortar as laterais das camadas
+    const scale = Math.min((size.h * 1.12) / FRAME_H, (size.w * 1.04) / FRAME_W);
+    const h = FRAME_H * scale;
+    const w = FRAME_W * scale;
+    const x = (size.w - w) / 2 + this.off.x + this.hover.x * 10 + Math.sin(this.t * 0.5) * 3 * live;
+    const y = (size.h - h) / 2 + this.off.y + this.hover.y * 6 + Math.sin(this.t * 0.9) * 5 * live;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    for (const s of this.sparkles) {
-      const y = ((s.y - this.t * s.s * 0.02 * live) % 1 + 1) % 1;
-      const a = 0.35 + 0.35 * Math.sin(this.t * 1.5 + s.p);
-      ctx.fillStyle = `rgba(255,255,255,${a})`;
-      ctx.beginPath();
-      ctx.arc(s.x * size.w, y * size.h, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // junção: gel desce GEL_SHARE·v; top coat desce (1 + GEL_SHARE)·v
-    const kg = easeOut(smooth(JOIN.gel[0], JOIN.gel[1], p));
-    const kt = easeOut(smooth(JOIN.top[0], JOIN.top[1], p));
-    // deslocamentos exatos de encaixe (scripts/fit-nail-layers.py)
-    const fit = fr.fit ?? { gel: [fr.join[0] * GEL_SHARE, fr.join[1] * GEL_SHARE], top: [fr.join[0] * (1 + GEL_SHARE), fr.join[1] * (1 + GEL_SHARE)] };
-    const breathe = Math.sin(this.t * 1.4) * 4 * live;
-    // o top coat acompanha o gel e depois desce o que falta até encaixar nele
-    const gx = fit.gel[0] * kg, gy = fit.gel[1] * kg;
-    const shifts = [
-      [gx + (fit.top[0] - fit.gel[0]) * kt, gy + (fit.top[1] - fit.gel[1]) * kt - breathe * 1.6 * (1 - kt)],
-      [gx, gy - breathe * (1 - kg)],
-      [0, 0],
-    ];
-
-    ctx.setTransform(this.dpr * scale, 0, 0, this.dpr * scale, this.dpr * ox, this.dpr * oy);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    // sombra suave e elíptica embaixo do dedo
-    const L2 = fr.layers[2];
-    ctx.save();
-    ctx.translate(L2.x + L2.w / 2, L2.y + L2.h + 14);
-    ctx.scale(1, 0.16);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, L2.w * 0.5);
-    g.addColorStop(0, 'rgba(90,60,50,0.22)');
-    g.addColorStop(1, 'rgba(90,60,50,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, L2.w * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    // dedo, gel e top coat (de baixo para cima)
-    for (const li of [2, 1, 0]) {
-      const L = fr.layers[li];
-      ctx.drawImage(img, L.sx, L.sy, L.w, L.h, L.x + shifts[li][0], L.y + shifts[li][1], L.w, L.h);
-    }
+    ctx.drawImage(img, x, y, w, h);
   }
 
   dispose() {
