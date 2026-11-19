@@ -163,65 +163,88 @@ button {
   max-width: 34em;
 }
 
-/* ---------- Botões ---------- */
+/* ---------- Botões ----------
+   Um único sistema: pílula com ícone em "selo" redondo.
+   Primário = espresso com selo rosé gold; secundário = contorno fino. */
 .btn {
-  --h: 54px;
+  --h: 56px;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 14px;
   min-height: var(--h);
-  padding: 0 26px;
+  padding: 0 28px;
   border-radius: 999px;
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background-color 0.35s var(--ease), color 0.35s var(--ease), border-color 0.35s var(--ease),
-    transform 0.35s var(--ease);
+  isolation: isolate;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.4s var(--ease), color 0.4s var(--ease), border-color 0.4s var(--ease),
+    box-shadow 0.4s var(--ease), transform 0.4s var(--ease);
+}
+.btn:has(svg) {
+  padding: 0 26px 0 8px;
 }
 .btn svg {
-  width: 18px;
-  height: 18px;
   flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 11px;
+  border-radius: 50%;
+  transition: transform 0.5s var(--ease), background-color 0.4s var(--ease);
+}
+.btn:hover svg {
+  transform: rotate(-12deg) scale(1.06);
 }
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
 }
 .btn-primary {
   background: var(--ink);
   color: var(--paper);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 10px 24px -14px rgba(42, 32, 28, 0.55);
+}
+.btn-primary svg {
+  background: var(--rose);
+  color: #fff;
 }
 .btn-primary:hover {
-  background: var(--rose-ink);
+  background: #3a2b25;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 16px 30px -14px rgba(42, 32, 28, 0.6);
+}
+.btn-primary:hover svg {
+  background: #c98e75;
 }
 .btn-ghost {
-  border-color: color-mix(in srgb, var(--ink) 28%, transparent);
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
   color: var(--ink);
-  background: transparent;
+}
+.btn-ghost svg {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
 }
 .btn-ghost:hover {
-  border-color: var(--ink);
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 55%, transparent);
+  background: var(--paper);
 }
 .on-dark .btn-primary {
   background: var(--cream-on-dark);
   color: var(--cocoa);
 }
-.on-dark .btn-primary:hover {
-  background: #fff;
-}
 .on-dark .btn-ghost {
   border-color: color-mix(in srgb, var(--cream-on-dark) 35%, transparent);
   color: var(--cream-on-dark);
-}
-.on-dark .btn-ghost:hover {
-  border-color: var(--cream-on-dark);
-  background: color-mix(in srgb, var(--cream-on-dark) 6%, transparent);
+  background: transparent;
 }
 
 .text-link {
@@ -299,9 +322,9 @@ button {
   color: var(--ink);
 }
 .nav .btn {
-  --h: 42px;
-  padding: 0 20px;
-  font-size: 14px;
+  --h: 44px;
+  padding: 0 22px;
+  font-size: 11.5px;
   color: var(--paper);
 }
 .menu-btn {
@@ -1326,30 +1349,6 @@ button {
 .hero-photo img {
   will-change: transform;
 }
-.hero-shine {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 236, 214, 0.55) 48%, rgba(255, 255, 255, 0.15) 52%, transparent 62%);
-  transform: translateX(-120%);
-  animation: hero-shine 2.2s 1.3s var(--ease) forwards, hero-shine-loop 9s 6s var(--ease) infinite;
-  mix-blend-mode: soft-light;
-}
-@keyframes hero-shine {
-  to {
-    transform: translateX(120%);
-  }
-}
-@keyframes hero-shine-loop {
-  0% {
-    transform: translateX(-120%);
-  }
-  22%,
-  100% {
-    transform: translateX(120%);
-  }
-}
 .hero-scroll {
   display: none;
 }
@@ -1442,8 +1441,95 @@ button {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-ribbon-track,
-  .hero-shine {
+  .hero-ribbon-track {
     animation: none;
+  }
+}
+
+/* ---------- Ajustes v3: unha flutuante, botão flutuante, celular ---------- */
+.story-track {
+  height: 340svh;
+}
+.story-canvas {
+  touch-action: pan-y;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.story-canvas.is-dragging {
+  cursor: grabbing;
+}
+.story-hint {
+  display: block;
+  bottom: auto;
+  top: 72px;
+  font-size: 10px;
+  opacity: 0.8;
+}
+@media (min-width: 900px) {
+  .story-hint {
+    top: auto;
+    bottom: 28px;
+    font-size: 11px;
+  }
+}
+.wa-float {
+  height: 56px;
+  padding: 0 22px 0 8px;
+  gap: 12px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.wa-float svg {
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  border-radius: 50%;
+  background: var(--rose);
+  color: #fff;
+}
+.wa-float:hover {
+  background: #3a2b25;
+}
+@media (max-width: 520px) {
+  .wa-float {
+    width: 56px;
+    padding: 0;
+  }
+  .wa-float svg {
+    width: 44px;
+    height: 44px;
+  }
+}
+/* nada pode vazar para os lados no celular */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+@media (max-width: 899px) {
+  .hero-actions .btn {
+    width: 100%;
+  }
+  .story-cta .btn {
+    flex: 1;
+  }
+  .booking-actions .btn,
+  .gallery-foot .btn,
+  .process-outro .btn {
+    width: 100%;
+  }
+}
+.hint-desk {
+  display: none;
+}
+@media (min-width: 900px) {
+  .hint-touch {
+    display: none;
+  }
+  .hint-desk {
+    display: inline;
   }
 }

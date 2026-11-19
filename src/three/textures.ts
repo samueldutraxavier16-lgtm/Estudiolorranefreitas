@@ -103,3 +103,18 @@ export function artTexture(size = 1024) {
   g.stroke();
   return tex(c);
 }
+
+/** Cor rosé com a arte (francesinha lilás + linha branca) já aplicada. */
+export function finishTexture(size = 1024) {
+  const [c, g] = make(size);
+  const lg = g.createLinearGradient(0, vy(0, size), 0, vy(1, size));
+  lg.addColorStop(0, '#b77570');
+  lg.addColorStop(0.5, '#b06a65');
+  lg.addColorStop(1, '#a9625d');
+  g.fillStyle = lg;
+  g.fillRect(0, 0, size, size);
+  const art = artTexture(size);
+  g.drawImage(art.image as HTMLCanvasElement, 0, 0);
+  art.dispose();
+  return tex(c);
+}

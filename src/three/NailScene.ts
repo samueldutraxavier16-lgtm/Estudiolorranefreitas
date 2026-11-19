@@ -1,49 +1,57 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Shell, easeOutCubic, edgeFalloff, lerp, smooth } from './nail';
-import { artTexture, baseTexture, colorTexture } from './textures';
+import { baseTexture, finishTexture } from './textures';
 import { LAYER_WINDOWS } from './timeline';
 
 export type Quality = 'high' | 'low';
 
 /* ------------------------------------------------------------------
-   Camadas, de baixo para cima. Cada uma "desce" e se encaixa na anterior
-   quando a rolagem chega na sua janela de tempo (ver timeline.ts).
+   Três camadas empilhadas, flutuando. Ao rolar, elas se aproximam
+   e se fundem em uma unha só. A pessoa pode arrastar para girar.
 ------------------------------------------------------------------- */
 type Fn = (u: number, v: number) => number;
 
 const tBase: Fn = (u, v) => 0.045 * edgeFalloff(u, v, 0.82, 0.06);
+const tColor: Fn = (u, v) => 0.016 * edgeFalloff(u, v, 0.86, 0.06);
 const tGel: Fn = (u, v) => {
   // gel com ápice: mais grosso no terço proximal, como no banho de gel real
   const apex = Math.exp(-Math.pow((v - 0.38) / 0.3, 2));
-  return (0.022 + 0.05 * apex * smooth(1, 0.55, Math.abs(u))) * edgeFalloff(u, v, 0.78, 0.1);
+  return (0.024 + 0.045 * apex * smooth(1, 0.55, Math.abs(u))) * edgeFalloff(u, v, 0.8, 0.1);
 };
-const tColor: Fn = (u, v) => 0.012 * edgeFalloff(u, v, 0.86, 0.06);
-const tArt: Fn = () => 0.003;
-const tTop: Fn = (u, v) => 0.02 * edgeFalloff(u, v, 0.8, 0.08);
-
 const sum = (...fs: Fn[]): Fn => (u, v) => fs.reduce((a, f) => a + f(u, v), 0);
+
+// distância entre as camadas quando separadas (unidades locais)
+const GAP_COLOR = 0.5;
+const GAP_GEL = 1.0;
 
 export class NailScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
-  private outer = new THREE.Group();
-  private inner = new THREE.Group();
+  private camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+  private pivot = new THREE.Group(); // posição flutuante + arraste
+  private outer = new THREE.Group(); // inclinação de apresentação
+  private inner = new THREE.Group(); // orientação da unha
   private clock = new THREE.Clock();
-  private layers: { mesh: THREE.Mesh; window: readonly [number, number]; dir: THREE.Vector3; spin: number }[] = [];
-  private sweep = new THREE.PointLight('#ffffff', 0, 6, 1.2);
+  private color: THREE.Mesh;
+  private gel: THREE.Mesh;
 
   private progress = 0;
   private smoothP = 0;
   private running = false;
   private disposed = false;
 
+  // interação
+  private drag = { active: false, x: 0, y: 0 };
+  private rot = { x: 0, y: 0, vx: 0, vy: 0 };
+  private hover = { x: 0, y: 0, tx: 0, ty: 0 };
+  private cleanup: (() => void)[] = [];
+
   constructor(private container: HTMLElement, quality: Quality, private reduced: boolean) {
     const high = quality === 'high';
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, high ? 2 : 1.4));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, high ? 2 : 1.5));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.95;
@@ -54,106 +62,114 @@ export class NailScene {
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
     pmrem.dispose();
 
-    const key = new THREE.DirectionalLight('#fff3ea', 2.2);
+    const key = new THREE.DirectionalLight('#fff3ea', 2.0);
     key.position.set(-3, 4, 5);
-    const rim = new THREE.DirectionalLight('#f2b8a2', 1.6);
+    const rim = new THREE.DirectionalLight('#f2b8a2', 1.4);
     rim.position.set(4, 2, -3);
-    const fill = new THREE.HemisphereLight('#fff6f0', '#c9a596', 0.6);
-    this.sweep.position.set(-2, 1.5, 2.5);
-    this.scene.add(key, rim, fill, this.sweep);
+    const fill = new THREE.HemisphereLight('#fff6f0', '#c9a596', 0.65);
+    this.scene.add(key, rim, fill);
 
-    const nu = high ? 56 : 36;
-    const nv = high ? 84 : 52;
+    const nu = high ? 56 : 40;
+    const nv = high ? 84 : 60;
     const shell = (thick: Fn, lift: Fn, grow: number) => new Shell(nu, nv).build({ thickness: thick, lift, grow });
 
-    // 1. unha natural (base)
+    // 1. unha natural
     const base = new THREE.Mesh(
       shell(tBase, () => 0, 0),
       new THREE.MeshPhysicalMaterial({
         map: baseTexture(),
         roughness: 0.42,
-        clearcoat: 0.35,
-        clearcoatRoughness: 0.4,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.45,
         sheen: 0.4,
         sheenColor: new THREE.Color('#fff2ec'),
         envMapIntensity: 0.7,
       }),
     );
 
-    // 2. gel construtor (transparente, com ápice)
-    const gel = new THREE.Mesh(
-      shell(tGel, tBase, 0.006),
+    // 2. cor com a arte do trabalho real (rosé + francesinha lilás)
+    this.color = new THREE.Mesh(
+      shell(tColor, tBase, 0.008),
       new THREE.MeshPhysicalMaterial({
-        color: '#ffffff',
-        roughness: 0.06,
-        clearcoat: 1,
-        clearcoatRoughness: 0.05,
-        ior: 1.5,
-        envMapIntensity: 1.3,
-        ...(high
-          ? { transmission: 1, thickness: 0.3, attenuationColor: new THREE.Color('#fff1ea'), attenuationDistance: 0.9 }
-          : { transparent: true, opacity: 0.4 }),
-      }),
-    );
-
-    // 3. cor
-    const color = new THREE.Mesh(
-      shell(tColor, sum(tBase, tGel), 0.01),
-      new THREE.MeshPhysicalMaterial({
-        map: colorTexture(),
-        roughness: 0.3,
-        clearcoat: 0.6,
-        clearcoatRoughness: 0.2,
+        map: finishTexture(high ? 1024 : 512),
+        roughness: 0.32,
+        clearcoat: 0.5,
+        clearcoatRoughness: 0.25,
         sheen: 0.3,
         sheenColor: new THREE.Color('#ffd9d2'),
-        envMapIntensity: 1,
+        envMapIntensity: 0.9,
       }),
     );
 
-    // 4. arte (francesinha diagonal + linha branca, do trabalho real)
-    const art = new THREE.Mesh(
-      shell(tArt, sum(tBase, tGel, tColor), 0.01),
-      new THREE.MeshPhysicalMaterial({
-        map: artTexture(high ? 1024 : 512),
-        transparent: true,
-        alphaTest: 0.4,
-        roughness: 0.3,
-        clearcoat: 0.6,
-        envMapIntensity: 1,
-      }),
-    );
-
-    // 5. top coat: vidro com brilho espelhado
-    const top = new THREE.Mesh(
-      shell(tTop, sum(tBase, tGel, tColor, tArt), 0.014),
+    // 3. gel de acabamento: transparente, com ápice e brilho de vidro
+    this.gel = new THREE.Mesh(
+      shell(tGel, sum(tBase, tColor), 0.014),
       new THREE.MeshPhysicalMaterial({
         color: '#ffffff',
-        roughness: 0.0,
+        roughness: 0.03,
         clearcoat: 1,
-        clearcoatRoughness: 0.02,
-        ior: 1.45,
-        envMapIntensity: 0.9,
-        ...(high ? { transmission: 1, thickness: 0.02 } : { transparent: true, opacity: 0.15 }),
+        clearcoatRoughness: 0.03,
+        ior: 1.48,
+        envMapIntensity: 1,
+        ...(high
+          ? { transmission: 1, thickness: 0.18, attenuationColor: new THREE.Color('#fff4ef'), attenuationDistance: 1.5 }
+          : { transparent: true, opacity: 0.3 }),
       }),
     );
 
-    this.inner.add(base);
-    const d = (y: number, z: number) => new THREE.Vector3(0, y, z);
-    this.layers = [
-      { mesh: gel, window: LAYER_WINDOWS.gel, dir: d(1.7, 0.55), spin: 0.5 },
-      { mesh: color, window: LAYER_WINDOWS.color, dir: d(1.8, 0.6), spin: -0.45 },
-      { mesh: art, window: LAYER_WINDOWS.art, dir: d(1.9, 0.65), spin: 0.4 },
-      { mesh: top, window: LAYER_WINDOWS.top, dir: d(2.0, 0.7), spin: -0.35 },
-    ];
-    this.layers.forEach((l) => this.inner.add(l.mesh));
-
-    // face superior para a câmera, ponta para cima
-    this.inner.rotation.set(-Math.PI / 2, 0, Math.PI);
+    this.inner.add(base, this.color, this.gel);
+    this.inner.rotation.set(-Math.PI / 2, 0, Math.PI); // face para a câmera, ponta para cima
     this.outer.add(this.inner);
-    this.outer.scale.setScalar(1.25);
-    this.scene.add(this.outer);
+    this.outer.scale.setScalar(1.05);
+    this.pivot.add(this.outer);
+    this.scene.add(this.pivot);
 
+    this.bindPointer();
     this.resize();
+  }
+
+  /* ---------------- arrastar para girar ---------------- */
+  private bindPointer() {
+    const el = this.container;
+    const down = (e: PointerEvent) => {
+      this.drag = { active: true, x: e.clientX, y: e.clientY };
+      el.classList.add('is-dragging');
+      if (e.pointerType === 'mouse') el.setPointerCapture(e.pointerId);
+    };
+    const move = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      this.hover.tx = ((e.clientX - r.left) / r.width - 0.5) * 2;
+      this.hover.ty = ((e.clientY - r.top) / r.height - 0.5) * 2;
+      if (!this.drag.active) return;
+      const dx = e.clientX - this.drag.x;
+      const dy = e.clientY - this.drag.y;
+      this.drag.x = e.clientX;
+      this.drag.y = e.clientY;
+      this.rot.vy = dx * 0.012;
+      this.rot.vx = e.pointerType === 'mouse' ? dy * 0.01 : 0; // no toque, o vertical continua rolando a página
+      this.rot.y += this.rot.vy;
+      this.rot.x = Math.max(-0.9, Math.min(0.9, this.rot.x + this.rot.vx));
+    };
+    const up = () => {
+      this.drag.active = false;
+      el.classList.remove('is-dragging');
+    };
+    const leave = () => {
+      this.hover.tx = 0;
+      this.hover.ty = 0;
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointerleave', leave);
+    this.cleanup.push(() => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('pointerleave', leave);
+    });
   }
 
   /* ---------------- API ---------------- */
@@ -174,14 +190,21 @@ export class NailScene {
     this.renderer.setAnimationLoop(null);
   }
 
+  private lastW = 0;
+  private lastH = 0;
   resize() {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
+    // ignora variações mínimas (barra de endereço do celular) para não "pular"
+    if (Math.abs(w - this.lastW) < 2 && Math.abs(h - this.lastH) < 80 && this.lastW) return;
+    this.lastW = w;
+    this.lastH = h;
     this.renderer.setSize(w, h, false);
-    const wide = w / h > 0.9;
     this.camera.aspect = w / h;
-    this.camera.fov = wide ? 26 : 30;
-    this.camera.position.set(0, 0, wide ? 6 : 6.4);
+    const narrow = w / h < 0.9;
+    this.camera.fov = narrow ? 27 : 28;
+    this.outer.scale.setScalar(narrow ? 1.12 : 1.05);
+    this.camera.position.set(0, 0, 6.2);
     this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
     this.renderFrame();
@@ -189,30 +212,42 @@ export class NailScene {
 
   private renderFrame() {
     if (this.disposed) return;
-    const t = this.clock.getElapsedTime();
-    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : 0.1);
-    if (Math.abs(this.progress - this.smoothP) < 0.0003) this.smoothP = this.progress;
+    const dt = Math.min(0.05, this.clock.getDelta());
+    const t = this.clock.elapsedTime;
+    const live = this.reduced ? 0 : 1;
+
+    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : Math.min(1, dt * 7));
     const p = this.smoothP;
 
-    // camadas: descem em diagonal, girando levemente, e se encaixam
-    for (const l of this.layers) {
-      const k = easeOutCubic(smooth(l.window[0], l.window[1], p));
-      const off = 1 - k;
-      l.mesh.visible = k > 0.001;
-      l.mesh.position.copy(l.dir).multiplyScalar(off);
-      l.mesh.rotation.set(off * 0.35, 0, off * l.spin);
+    // camadas se juntam com a rolagem
+    const kc = easeOutCubic(smooth(LAYER_WINDOWS.color[0], LAYER_WINDOWS.color[1], p));
+    const kg = easeOutCubic(smooth(LAYER_WINDOWS.gel[0], LAYER_WINDOWS.gel[1], p));
+    // pequena respiração enquanto separadas
+    const breathe = Math.sin(t * 1.4) * 0.03 * live;
+    this.color.position.set(0, (GAP_COLOR + breathe) * (1 - kc), 0);
+    this.gel.position.set(0, (GAP_GEL + breathe * 1.6) * (1 - kg), 0);
+
+    // inércia do arraste e retorno suave
+    if (!this.drag.active) {
+      this.rot.vy *= 0.92;
+      this.rot.y += this.rot.vy;
+      this.rot.y *= 1 - Math.min(1, dt * 0.8);
+      this.rot.x *= 1 - Math.min(1, dt * 1.6);
     }
+    this.hover.x += (this.hover.tx - this.hover.x) * Math.min(1, dt * 3);
+    this.hover.y += (this.hover.ty - this.hover.y) * Math.min(1, dt * 3);
 
-    // a unha gira ao longo da rolagem, como uma peça na vitrine
-    const idle = this.reduced ? 0 : 1;
-    const spin = lerp(-0.55, 0.4, p) + Math.sin(t * 0.6) * 0.06 * idle;
-    this.outer.rotation.set(-0.28 + Math.sin(t * 0.45) * 0.03 * idle, spin, -0.38 + Math.sin(t * 0.5) * 0.02 * idle);
-    this.outer.position.y = Math.sin(t * 0.8) * 0.04 * idle;
+    // flutuando no ar, sozinha
+    this.pivot.position.set(
+      Math.sin(t * 0.5) * 0.06 * live + this.hover.x * 0.12,
+      Math.sin(t * 0.9) * 0.08 * live - this.hover.y * 0.1 - lerp(0.25, 0, p),
+      0,
+    );
+    this.pivot.rotation.set(this.rot.x + this.hover.y * 0.08, this.rot.y + this.hover.x * 0.15, 0);
 
-    // reflexo passando pelo top coat no final
-    const sw = smooth(0.86, 1, p);
-    this.sweep.intensity = Math.sin(sw * Math.PI) * 9;
-    this.sweep.position.set(lerp(-2.2, 2.2, sw), 1.6, 2.4);
+    // inclinação: separada mostra a pilha de lado; montada mostra a face
+    const spin = lerp(-0.5, 0.35, p) + Math.sin(t * 0.6) * 0.07 * live;
+    this.outer.rotation.set(lerp(-0.95, -0.35, p) + Math.sin(t * 0.45) * 0.03 * live, spin, -0.35);
 
     this.renderer.render(this.scene, this.camera);
   }
@@ -220,6 +255,7 @@ export class NailScene {
   dispose() {
     this.disposed = true;
     this.stop();
+    this.cleanup.forEach((f) => f());
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
       m.geometry?.dispose();

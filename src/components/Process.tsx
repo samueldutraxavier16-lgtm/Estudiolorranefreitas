@@ -6,6 +6,7 @@ import { WhatsAppIcon } from './Icons';
 import { STAGE_STARTS } from '../three/timeline';
 
 gsap.registerPlugin(ScrollTrigger);
+ScrollTrigger.config({ ignoreMobileResize: true });
 
 type Mode = 'checking' | '3d' | 'static';
 
@@ -57,10 +58,10 @@ export default function Process() {
       let idx = 0;
       STAGE_STARTS.forEach((s, i) => p >= s - 0.003 && (idx = i));
       setActive(idx);
-      setDone(p > 0.9);
+      setDone(p > 0.82);
       bars.forEach((b, i) => {
         const a = STAGE_STARTS[i];
-        const z = STAGE_STARTS[i + 1] ?? 0.9;
+        const z = STAGE_STARTS[i + 1] ?? 0.82;
         b.style.transform = `scaleY(${Math.min(1, Math.max(0, (p - a) / (z - a)))})`;
       });
     };
@@ -106,7 +107,7 @@ export default function Process() {
     <>
       <p className="eyebrow">O processo · Banho de gel</p>
       <h2 id="processo-title" className="h2 story-title">
-        Quatro camadas, <em>um acabamento</em>
+        Três camadas, <em>uma unha perfeita</em>
       </h2>
       <ol className="story-steps" ref={stepsRef}>
         {stages.map((s, i) => (
@@ -157,7 +158,7 @@ export default function Process() {
               <div className="story-canvas" ref={hostRef} />
               {!loaded && <span className="story-loading">Carregando</span>}
               <span className="story-hint" aria-hidden="true">
-                Role para montar a unha
+                <span className="hint-touch">Arraste para girar</span><span className="hint-desk">Arraste para girar · role para juntar as camadas</span>
               </span>
             </div>
           </div>

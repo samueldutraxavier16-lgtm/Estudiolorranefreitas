@@ -68,21 +68,16 @@ export const stages = [
   {
     n: 'I',
     title: 'A base',
-    text: 'Unha natural preparada: cutícula afastada, superfície lixada e formato alinhado.',
+    text: 'A unha natural preparada: cutícula afastada, superfície lixada e formato alinhado.',
   },
   {
     n: 'II',
-    title: 'O gel',
-    text: 'O gel transparente cobre a unha e forma a curvatura que dá resistência e evita quebras.',
+    title: 'A cor',
+    text: 'A cor e os detalhes escolhidos por você, aplicados finos e uniformes.',
   },
   {
     n: 'III',
-    title: 'A cor',
-    text: 'A cor escolhida por você, aplicada fina e uniforme, curada na cabine.',
-  },
-  {
-    n: 'IV',
-    title: 'O acabamento',
-    text: 'Detalhes à mão e top coat de alto brilho, que sela tudo e deixa a unha espelhada.',
+    title: 'O gel',
+    text: 'A camada de gel que sela tudo, dá resistência e deixa a unha com brilho de vidro.',
   },
 ] as const;

@@ -7,15 +7,18 @@ export default function FloatingWhatsApp() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const booking = document.getElementById('agendar');
-    let bookingOnScreen = false;
-    const io = new IntersectionObserver(([e]) => {
-      bookingOnScreen = e.isIntersecting;
+    // some na seção de agendamento e na unha 3D (que já tem o próprio botão)
+    const onScreen = new Set<Element>();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => (e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target)));
       update();
     });
-    if (booking) io.observe(booking);
+    ['agendar', 'processo'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) io.observe(el);
+    });
     function update() {
-      setVisible(window.scrollY > window.innerHeight * 0.8 && !bookingOnScreen);
+      setVisible(window.scrollY > window.innerHeight * 0.8 && onScreen.size === 0);
     }
     update();
     window.addEventListener('scroll', update, { passive: true });
