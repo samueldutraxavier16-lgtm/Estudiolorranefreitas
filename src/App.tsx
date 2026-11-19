@@ -27,7 +27,6 @@ export default function App() {
         { clipPath: 'inset(100% 0% 0% 0%)' },
         { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.5, ease: 'power4.inOut', clearProps: 'clipPath' },
       )
-        .fromTo('[data-hero-photo] img', { scale: 1.25 }, { scale: 1, duration: 2.2, ease: 'power3.out' }, 0)
         .fromTo('.hero-name .char', { yPercent: 115, rotate: 6 }, { yPercent: 0, rotate: 0, duration: 1.1, stagger: 0.035, ease: 'expo.out' }, 0.35)
         .fromTo('[data-hero-in]', { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 1, stagger: 0.09 }, 0.7)
         .fromTo('.hero-frame', { opacity: 0, x: -10, y: -10 }, { opacity: 1, x: 0, y: 0, duration: 1.4 }, 0.9)
@@ -35,12 +34,6 @@ export default function App() {
         .fromTo('.hero-ribbon', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 1 }, 1.1);
 
       // ao rolar: foto em paralaxe e texto saindo suavemente
-      gsap.to('[data-hero-photo] img', {
-        yPercent: 9,
-        scale: 1.06,
-        ease: 'none',
-        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true },
-      });
       gsap.to('.hero-copy', {
         y: -60,
         opacity: 0.2,
