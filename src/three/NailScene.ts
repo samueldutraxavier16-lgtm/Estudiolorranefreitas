@@ -1,296 +1,159 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import {
-  Shell,
-  createFingerGeometry,
-  createFoldGeometry,
-  lerp,
-  nailBase,
-  smooth,
-  type NailShape,
-} from './geometry';
-import { backdropTexture, finishTexture, plateTexture, ridgeTexture, skinBumpTexture } from './textures';
+import { Shell, easeOutCubic, edgeFalloff, lerp, smooth } from './nail';
+import { artTexture, baseTexture, colorTexture } from './textures';
+import { LAYER_WINDOWS } from './timeline';
 
 export type Quality = 'high' | 'low';
 
 /* ------------------------------------------------------------------
-   Linha do tempo (progresso da rolagem 0 → 1)
-   I natural · II preparação · III gel · IV estrutura · V nivelamento · VI resultado
+   Camadas, de baixo para cima. Cada uma "desce" e se encaixa na anterior
+   quando a rolagem chega na sua janela de tempo (ver timeline.ts).
 ------------------------------------------------------------------- */
+type Fn = (u: number, v: number) => number;
 
-const NATURAL: NailShape = { cuticle: -0.6, tip: 0.9, tipCurve: 0.15, tipPow: 2 };
-const FILED: NailShape = { cuticle: -0.66, tip: 0.86, tipCurve: 0.035, tipPow: 4 };
+const tBase: Fn = (u, v) => 0.045 * edgeFalloff(u, v, 0.82, 0.06);
+const tGel: Fn = (u, v) => {
+  // gel com ápice: mais grosso no terço proximal, como no banho de gel real
+  const apex = Math.exp(-Math.pow((v - 0.38) / 0.3, 2));
+  return (0.022 + 0.05 * apex * smooth(1, 0.55, Math.abs(u))) * edgeFalloff(u, v, 0.78, 0.1);
+};
+const tColor: Fn = (u, v) => 0.012 * edgeFalloff(u, v, 0.86, 0.06);
+const tArt: Fn = () => 0.003;
+const tTop: Fn = (u, v) => 0.02 * edgeFalloff(u, v, 0.8, 0.08);
 
-// câmera: [progresso, azimute°, elevação°, distância]
-const CAM: [number, number, number, number][] = [
-  [0.0, -55, 34, 8.2],
-  [0.13, -38, 40, 7.0],
-  [0.3, -20, 52, 5.6],
-  [0.46, 6, 56, 5.2],
-  [0.6, 52, 20, 5.0],
-  [0.72, 44, 26, 5.1],
-  [0.86, 14, 50, 5.4],
-  [1.0, -24, 42, 5.9],
-];
-
-function sampleCam(p: number) {
-  let i = 0;
-  while (i < CAM.length - 2 && p > CAM[i + 1][0]) i++;
-  const a = CAM[i];
-  const b = CAM[i + 1];
-  const t = smooth(a[0], b[0], p);
-  return { az: lerp(a[1], b[1], t), el: lerp(a[2], b[2], t), r: lerp(a[3], b[3], t) };
-}
-
-const window01 = (p: number, a: number, b: number) => smooth(a, b, p);
+const sum = (...fs: Fn[]): Fn => (u, v) => fs.reduce((a, f) => a + f(u, v), 0);
 
 export class NailScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
-  private target = new THREE.Vector3(0, 0.36, 0.12);
-  private group = new THREE.Group();
+  private camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
+  private outer = new THREE.Group();
+  private inner = new THREE.Group();
   private clock = new THREE.Clock();
-
-  private plate = new Shell();
-  private gel: Shell;
-  private color: Shell;
-  private plateMat: THREE.MeshPhysicalMaterial;
-  private gelMat: THREE.MeshPhysicalMaterial;
-  private colorMat: THREE.MeshPhysicalMaterial;
-  private skinMat: THREE.MeshPhysicalMaterial;
-  private fold: THREE.Mesh;
-  private gelMesh: THREE.Mesh;
-  private colorMesh: THREE.Mesh;
-  private dust: THREE.Points;
-  private dustSeeds: Float32Array;
-  private uvLight = new THREE.PointLight('#8a6bff', 0, 3, 1.6);
-  private sweep = new THREE.PointLight('#fff3ea', 0, 4, 1.4);
+  private layers: { mesh: THREE.Mesh; window: readonly [number, number]; dir: THREE.Vector3; spin: number }[] = [];
+  private sweep = new THREE.PointLight('#ffffff', 0, 6, 1.2);
 
   private progress = 0;
   private smoothP = 0;
-  private lastBuilt = -1;
-  private lastFold = '';
   private running = false;
   private disposed = false;
-  private reduced: boolean;
-  private viewShift = { x: 0, y: 0 };
-  private size = { w: 1, h: 1 };
 
-  constructor(private container: HTMLElement, quality: Quality, reduced: boolean) {
-    this.reduced = reduced;
+  constructor(private container: HTMLElement, quality: Quality, private reduced: boolean) {
     const high = quality === 'high';
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, high ? 2 : 1.35));
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, high ? 2 : 1.4));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.82;
-    container.appendChild(this.renderer.domElement);
+    this.renderer.toneMappingExposure = 0.95;
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
+    container.appendChild(this.renderer.domElement);
 
-    this.gel = new Shell(high ? 40 : 28, high ? 64 : 44);
-    this.color = new Shell(high ? 40 : 28, high ? 64 : 44);
-
-    // ambiente e luz
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
     pmrem.dispose();
-    this.scene.background = backdropTexture();
 
-    const hemi = new THREE.HemisphereLight('#fff1e6', '#3a2a24', 0.55);
-    const key = new THREE.DirectionalLight('#fff0e2', 1.6);
-    key.position.set(-2.2, 4, 3);
-    const rim = new THREE.DirectionalLight('#f1b49b', 1.7);
-    rim.position.set(2.5, 1.2, -3);
-    const fill = new THREE.DirectionalLight('#ffe6d6', 0.5);
-    fill.position.set(3, 0.5, 2.5);
-    this.uvLight.position.set(0, 1.25, 0.1);
-    this.sweep.position.set(-1.5, 1.2, 1.5);
-    this.scene.add(hemi, key, rim, fill, this.uvLight, this.sweep);
+    const key = new THREE.DirectionalLight('#fff3ea', 2.2);
+    key.position.set(-3, 4, 5);
+    const rim = new THREE.DirectionalLight('#f2b8a2', 1.6);
+    rim.position.set(4, 2, -3);
+    const fill = new THREE.HemisphereLight('#fff6f0', '#c9a596', 0.6);
+    this.sweep.position.set(-2, 1.5, 2.5);
+    this.scene.add(key, rim, fill, this.sweep);
 
-    // dedo
-    this.skinMat = new THREE.MeshPhysicalMaterial({
-      color: '#a86d55',
-      roughness: 0.58,
-      sheen: 0.7,
-      sheenColor: new THREE.Color('#ffd9c6'),
-      sheenRoughness: 0.45,
-      clearcoat: 0.08,
-      clearcoatRoughness: 0.6,
-      bumpMap: skinBumpTexture(),
-      bumpScale: 0.6,
-      envMapIntensity: 0.35,
-    });
-    const finger = new THREE.Mesh(createFingerGeometry(high ? 90 : 60, high ? 72 : 48), this.skinMat);
-    this.group.add(finger);
+    const nu = high ? 56 : 36;
+    const nv = high ? 84 : 52;
+    const shell = (thick: Fn, lift: Fn, grow: number) => new Shell(nu, nv).build({ thickness: thick, lift, grow });
 
-    // lâmina natural
-    this.plateMat = new THREE.MeshPhysicalMaterial({
-      map: plateTexture(),
-      roughness: 0.38,
-      clearcoat: 0.45,
-      clearcoatRoughness: 0.35,
-      bumpMap: ridgeTexture(),
-      bumpScale: 1.2,
-      sheen: 0.3,
-      sheenColor: new THREE.Color('#ffffff'),
-      envMapIntensity: 0.5,
-    });
-    this.group.add(new THREE.Mesh(this.plate.geometry, this.plateMat));
-
-    // dobras de pele
-    this.fold = new THREE.Mesh(createFoldGeometry(NATURAL, 0, 0.045), this.skinMat);
-    this.group.add(this.fold);
-
-    // gel transparente
-    this.gelMat = new THREE.MeshPhysicalMaterial({
-      color: '#ffffff',
-      roughness: 0.08,
-      metalness: 0,
-      clearcoat: 1,
-      clearcoatRoughness: 0.04,
-      ior: 1.5,
-      envMapIntensity: 1.2,
-      emissive: new THREE.Color('#6b4bff'),
-      emissiveIntensity: 0,
-      ...(high
-        ? { transmission: 1, thickness: 0.25, attenuationColor: new THREE.Color('#fff4ee'), attenuationDistance: 1.2 }
-        : { transparent: true, opacity: 0.38 }),
-    });
-    this.gelMesh = new THREE.Mesh(this.gel.geometry, this.gelMat);
-    this.group.add(this.gelMesh);
-
-    // cor final
-    this.colorMat = new THREE.MeshPhysicalMaterial({
-      map: finishTexture(high ? 1024 : 512),
-      roughness: 0.2,
-      clearcoat: 1,
-      clearcoatRoughness: 0.025,
-      sheen: 0.2,
-      envMapIntensity: 1.1,
-    });
-    this.colorMesh = new THREE.Mesh(this.color.geometry, this.colorMat);
-    this.group.add(this.colorMesh);
-
-    // pó da lixa
-    const count = high ? 160 : 80;
-    const dustGeo = new THREE.BufferGeometry();
-    dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(count * 3), 3));
-    this.dustSeeds = new Float32Array(count * 4).map(() => Math.random());
-    this.dust = new THREE.Points(
-      dustGeo,
-      new THREE.PointsMaterial({ color: '#f6e9df', size: 0.011, transparent: true, opacity: 0, depthWrite: false }),
+    // 1. unha natural (base)
+    const base = new THREE.Mesh(
+      shell(tBase, () => 0, 0),
+      new THREE.MeshPhysicalMaterial({
+        map: baseTexture(),
+        roughness: 0.42,
+        clearcoat: 0.35,
+        clearcoatRoughness: 0.4,
+        sheen: 0.4,
+        sheenColor: new THREE.Color('#fff2ec'),
+        envMapIntensity: 0.7,
+      }),
     );
-    this.group.add(this.dust);
 
-    this.group.rotation.set(0.04, 0, 0);
-    this.scene.add(this.group);
+    // 2. gel construtor (transparente, com ápice)
+    const gel = new THREE.Mesh(
+      shell(tGel, tBase, 0.006),
+      new THREE.MeshPhysicalMaterial({
+        color: '#ffffff',
+        roughness: 0.06,
+        clearcoat: 1,
+        clearcoatRoughness: 0.05,
+        ior: 1.5,
+        envMapIntensity: 1.3,
+        ...(high
+          ? { transmission: 1, thickness: 0.3, attenuationColor: new THREE.Color('#fff1ea'), attenuationDistance: 0.9 }
+          : { transparent: true, opacity: 0.4 }),
+      }),
+    );
 
-    this.build(0);
+    // 3. cor
+    const color = new THREE.Mesh(
+      shell(tColor, sum(tBase, tGel), 0.01),
+      new THREE.MeshPhysicalMaterial({
+        map: colorTexture(),
+        roughness: 0.3,
+        clearcoat: 0.6,
+        clearcoatRoughness: 0.2,
+        sheen: 0.3,
+        sheenColor: new THREE.Color('#ffd9d2'),
+        envMapIntensity: 1,
+      }),
+    );
+
+    // 4. arte (francesinha diagonal + linha branca, do trabalho real)
+    const art = new THREE.Mesh(
+      shell(tArt, sum(tBase, tGel, tColor), 0.01),
+      new THREE.MeshPhysicalMaterial({
+        map: artTexture(high ? 1024 : 512),
+        transparent: true,
+        alphaTest: 0.4,
+        roughness: 0.3,
+        clearcoat: 0.6,
+        envMapIntensity: 1,
+      }),
+    );
+
+    // 5. top coat: vidro com brilho espelhado
+    const top = new THREE.Mesh(
+      shell(tTop, sum(tBase, tGel, tColor, tArt), 0.014),
+      new THREE.MeshPhysicalMaterial({
+        color: '#ffffff',
+        roughness: 0.0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.02,
+        ior: 1.45,
+        envMapIntensity: 0.9,
+        ...(high ? { transmission: 1, thickness: 0.02 } : { transparent: true, opacity: 0.15 }),
+      }),
+    );
+
+    this.inner.add(base);
+    const d = (y: number, z: number) => new THREE.Vector3(0, y, z);
+    this.layers = [
+      { mesh: gel, window: LAYER_WINDOWS.gel, dir: d(1.7, 0.55), spin: 0.5 },
+      { mesh: color, window: LAYER_WINDOWS.color, dir: d(1.8, 0.6), spin: -0.45 },
+      { mesh: art, window: LAYER_WINDOWS.art, dir: d(1.9, 0.65), spin: 0.4 },
+      { mesh: top, window: LAYER_WINDOWS.top, dir: d(2.0, 0.7), spin: -0.35 },
+    ];
+    this.layers.forEach((l) => this.inner.add(l.mesh));
+
+    // face superior para a câmera, ponta para cima
+    this.inner.rotation.set(-Math.PI / 2, 0, Math.PI);
+    this.outer.add(this.inner);
+    this.outer.scale.setScalar(1.25);
+    this.scene.add(this.outer);
+
     this.resize();
-  }
-
-  /* ---------------- estado por progresso ---------------- */
-  private build(p: number) {
-    const prep = window01(p, 0.16, 0.24); // cutícula
-    const buff = window01(p, 0.2, 0.3); // lixa de superfície
-    const file = window01(p, 0.24, 0.32); // formato
-    const gelCover = window01(p, 0.34, 0.47);
-    const struct = window01(p, 0.5, 0.63);
-    const level = window01(p, 0.66, 0.76);
-    const colorCover = window01(p, 0.82, 0.9);
-
-    const shape: NailShape = {
-      cuticle: lerp(NATURAL.cuticle, FILED.cuticle, prep),
-      tip: lerp(NATURAL.tip, FILED.tip, file),
-      tipCurve: lerp(NATURAL.tipCurve, FILED.tipCurve, file),
-      tipPow: lerp(NATURAL.tipPow, FILED.tipPow, file),
-    };
-
-    // lâmina natural
-    this.plate.update({
-      shape,
-      coverage: 1,
-      vStart: 0,
-      lift: -0.004,
-      thickness: (u, v) => 0.03 * (0.35 + 0.65 * smooth(1, 0.82, Math.abs(u)) * smooth(0, 0.05, v)),
-    });
-    this.plateMat.roughness = lerp(0.36, 0.82, buff);
-    this.plateMat.clearcoat = lerp(0.45, 0, buff);
-    this.plateMat.bumpScale = lerp(1.2, 0.15, buff);
-
-    // dobra da cutícula: empurrada para trás e afinada na preparação
-    const foldKey = `${prep.toFixed(3)}`;
-    if (foldKey !== this.lastFold) {
-      this.lastFold = foldKey;
-      this.fold.geometry.dispose();
-      this.fold.geometry = createFoldGeometry(shape, lerp(-0.035, 0.0, prep), lerp(0.05, 0.036, prep));
-    }
-
-    // gel: base fina → estrutura com ápice → nivelado
-    const apex = 0.075 * struct;
-    const waveAmp = 0.011 * struct * (1 - level);
-    const gelThick = (u: number, v: number) => {
-      const side = smooth(1, 0.78, Math.abs(u));
-      const prox = smooth(0.02, 0.12, v);
-      const base = 0.016 + 0.006 * struct;
-      const hump = apex * Math.exp(-Math.pow((v - 0.4) / 0.3, 2)) * (0.45 + 0.55 * side);
-      return (base + hump) * (0.3 + 0.7 * side) * (0.25 + 0.75 * prox);
-    };
-    const gelWave = waveAmp
-      ? (u: number, v: number) =>
-          waveAmp *
-          (Math.sin(u * 7.3 + v * 3.1) * 0.6 + Math.sin(v * 17.0 - u * 2.0) * 0.4) *
-          smooth(1, 0.7, Math.abs(u)) *
-          smooth(0.02, 0.2, v)
-      : undefined;
-    this.gelMesh.visible = gelCover > 0.001;
-    if (this.gelMesh.visible) {
-      this.gel.update({ shape, coverage: lerp(0.06, 1, gelCover), vStart: 0.025, lift: 0.024, thickness: gelThick, wave: gelWave });
-    }
-    this.gelMat.roughness = lerp(0.05, 0.1, struct * (1 - level));
-    this.gelMat.clearcoatRoughness = lerp(0.03, 0.12, struct * (1 - level));
-
-    // cor
-    this.colorMesh.visible = colorCover > 0.001;
-    if (this.colorMesh.visible) {
-      this.color.update({
-        shape,
-        coverage: lerp(0.06, 1, colorCover),
-        vStart: 0.03,
-        lift: 0.024,
-        thickness: (u, v) => gelThick(u, v) + 0.006 * smooth(1, 0.8, Math.abs(u)),
-      });
-    }
-    this.gelMesh.visible = this.gelMesh.visible && colorCover < 0.999;
-
-    // pó: espalha sobre a unha enquanto lixa
-    const dustOn = window01(p, 0.19, 0.22) * (1 - window01(p, 0.3, 0.34));
-    (this.dust.material as THREE.PointsMaterial).opacity = dustOn * 0.85;
-    this.dust.visible = dustOn > 0.01;
-    this.dustShape = shape;
-  }
-
-  private dustShape: NailShape = NATURAL;
-  private tmp = new THREE.Vector3();
-
-  private animateDust(t: number) {
-    if (!this.dust.visible) return;
-    const pos = this.dust.geometry.attributes.position as THREE.BufferAttribute;
-    const s = this.dustSeeds;
-    for (let i = 0; i < pos.count; i++) {
-      const u = s[i * 4] * 2 - 1;
-      const v = s[i * 4 + 1];
-      nailBase(u * 1.1, v, this.dustShape, this.tmp);
-      const life = (t * (0.15 + s[i * 4 + 2] * 0.25) + s[i * 4 + 3]) % 1;
-      pos.setXYZ(
-        i,
-        this.tmp.x + Math.sin(t + i) * 0.02 * life,
-        this.tmp.y + 0.03 + life * 0.22,
-        this.tmp.z + (s[i * 4 + 2] - 0.5) * 0.08 * life,
-      );
-    }
-    pos.needsUpdate = true;
   }
 
   /* ---------------- API ---------------- */
@@ -303,7 +166,6 @@ export class NailScene {
   start() {
     if (this.running || this.disposed) return;
     this.running = true;
-    this.clock.start();
     this.renderer.setAnimationLoop(() => this.renderFrame());
   }
 
@@ -315,14 +177,12 @@ export class NailScene {
   resize() {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
-    this.size = { w, h };
     this.renderer.setSize(w, h, false);
-    const wide = w / h > 1.1 && w >= 900;
+    const wide = w / h > 0.9;
     this.camera.aspect = w / h;
-    // Desktop: unha à esquerda (texto à direita). Celular: unha mais alta (texto embaixo).
-    this.viewShift = wide ? { x: w * 0.17, y: 0 } : { x: 0, y: h * 0.13 };
-    this.camera.fov = wide ? 28 : w < 520 ? 40 : 34;
-    this.camera.setViewOffset(w, h, this.viewShift.x, this.viewShift.y, w, h);
+    this.camera.fov = wide ? 26 : 30;
+    this.camera.position.set(0, 0, wide ? 6 : 6.4);
+    this.camera.lookAt(0, 0, 0);
     this.camera.updateProjectionMatrix();
     this.renderFrame();
   }
@@ -330,39 +190,29 @@ export class NailScene {
   private renderFrame() {
     if (this.disposed) return;
     const t = this.clock.getElapsedTime();
-    // amortecimento leve: transições fluidas mesmo com rolagem brusca
-    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : 0.12);
-    if (Math.abs(this.progress - this.smoothP) < 0.0004) this.smoothP = this.progress;
+    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : 0.1);
+    if (Math.abs(this.progress - this.smoothP) < 0.0003) this.smoothP = this.progress;
     const p = this.smoothP;
 
-    const q = Math.round(p * 2000) / 2000;
-    if (q !== this.lastBuilt) {
-      this.lastBuilt = q;
-      this.build(q);
+    // camadas: descem em diagonal, girando levemente, e se encaixam
+    for (const l of this.layers) {
+      const k = easeOutCubic(smooth(l.window[0], l.window[1], p));
+      const off = 1 - k;
+      l.mesh.visible = k > 0.001;
+      l.mesh.position.copy(l.dir).multiplyScalar(off);
+      l.mesh.rotation.set(off * 0.35, 0, off * l.spin);
     }
-    this.animateDust(t);
 
-    // câmera
-    const c = sampleCam(p);
-    const az = THREE.MathUtils.degToRad(c.az + (this.reduced ? 0 : Math.sin(t * 0.35) * 1.2));
-    const el = THREE.MathUtils.degToRad(c.el + (this.reduced ? 0 : Math.sin(t * 0.27) * 0.8));
-    this.camera.position.set(
-      this.target.x + c.r * Math.sin(az) * Math.cos(el),
-      this.target.y + c.r * Math.sin(el),
-      this.target.z + c.r * Math.cos(az) * Math.cos(el),
-    );
-    this.camera.lookAt(this.target);
+    // a unha gira ao longo da rolagem, como uma peça na vitrine
+    const idle = this.reduced ? 0 : 1;
+    const spin = lerp(-0.55, 0.4, p) + Math.sin(t * 0.6) * 0.06 * idle;
+    this.outer.rotation.set(-0.28 + Math.sin(t * 0.45) * 0.03 * idle, spin, -0.38 + Math.sin(t * 0.5) * 0.02 * idle);
+    this.outer.position.y = Math.sin(t * 0.8) * 0.04 * idle;
 
-    // luz UV da cabine durante a cura
-    const cure = window01(p, 0.7, 0.735) * (1 - window01(p, 0.775, 0.8));
-    const pulse = this.reduced ? 1 : 0.85 + 0.15 * Math.sin(t * 6);
-    this.uvLight.intensity = cure * 5 * pulse;
-    this.gelMat.emissiveIntensity = cure * 0.22 * pulse;
-
-    // brilho final passando pela unha
-    const sw = window01(p, 0.9, 1);
-    this.sweep.intensity = Math.sin(sw * Math.PI) * 6;
-    this.sweep.position.set(lerp(-1.4, 1.4, sw), 1.0, lerp(1.2, -0.2, sw));
+    // reflexo passando pelo top coat no final
+    const sw = smooth(0.86, 1, p);
+    this.sweep.intensity = Math.sin(sw * Math.PI) * 9;
+    this.sweep.position.set(lerp(-2.2, 2.2, sw), 1.6, 2.4);
 
     this.renderer.render(this.scene, this.camera);
   }
@@ -372,20 +222,16 @@ export class NailScene {
     this.stop();
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;
-      if (m.geometry) m.geometry.dispose();
+      m.geometry?.dispose();
       const mat = m.material as THREE.Material | THREE.Material[] | undefined;
-      if (mat) (Array.isArray(mat) ? mat : [mat]).forEach((x) => {
-        Object.values(x).forEach((v) => v instanceof THREE.Texture && v.dispose());
-        x.dispose();
-      });
+      if (mat)
+        (Array.isArray(mat) ? mat : [mat]).forEach((x) => {
+          Object.values(x).forEach((v) => v instanceof THREE.Texture && v.dispose());
+          x.dispose();
+        });
     });
-    (this.scene.background as THREE.Texture | null)?.dispose();
     this.scene.environment?.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
-  }
-
-  get canvasSize() {
-    return this.size;
   }
 }

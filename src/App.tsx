@@ -20,13 +20,59 @@ export default function App() {
       return;
     }
     const ctx = gsap.context(() => {
-      // entrada do hero
+      // entrada do hero: foto se abre, letras sobem uma a uma, moldura desenha
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
       tl.fromTo(
         '[data-hero-photo]',
-        { clipPath: 'inset(12% 0% 0% 0% round 0px)', scale: 1.06 },
-        { clipPath: 'inset(0% 0% 0% 0% round 0px)', scale: 1, duration: 1.4, clearProps: 'clipPath,transform' },
-      ).fromTo('[data-hero-in]', { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 1, stagger: 0.08 }, 0.25);
+        { clipPath: 'inset(100% 0% 0% 0%)' },
+        { clipPath: 'inset(0% 0% 0% 0%)', duration: 1.5, ease: 'power4.inOut', clearProps: 'clipPath' },
+      )
+        .fromTo('[data-hero-photo] img', { scale: 1.25 }, { scale: 1, duration: 2.2, ease: 'power3.out' }, 0)
+        .fromTo('.hero-name .char', { yPercent: 115, rotate: 6 }, { yPercent: 0, rotate: 0, duration: 1.1, stagger: 0.035, ease: 'expo.out' }, 0.35)
+        .fromTo('[data-hero-in]', { y: 28, opacity: 0 }, { y: 0, opacity: 1, duration: 1, stagger: 0.09 }, 0.7)
+        .fromTo('.hero-frame', { opacity: 0, x: -10, y: -10 }, { opacity: 1, x: 0, y: 0, duration: 1.4 }, 0.9)
+        .fromTo('.hero-motto', { opacity: 0 }, { opacity: 1, duration: 1 }, 1.2)
+        .fromTo('.hero-ribbon', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 1 }, 1.1);
+
+      // ao rolar: foto em paralaxe e texto saindo suavemente
+      gsap.to('[data-hero-photo] img', {
+        yPercent: 9,
+        scale: 1.06,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true },
+      });
+      gsap.to('.hero-copy', {
+        y: -60,
+        opacity: 0.2,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero', start: '30% top', end: 'bottom top', scrub: true },
+      });
+
+      // desktop: foto acompanha levemente o mouse e botões magnéticos
+      if (window.matchMedia('(pointer: fine)').matches) {
+        const photo = document.querySelector<HTMLElement>('.hero-photo-col');
+        const qx = photo && gsap.quickTo(photo, 'x', { duration: 1.2, ease: 'power3.out' });
+        const qy = photo && gsap.quickTo(photo, 'y', { duration: 1.2, ease: 'power3.out' });
+        const hero = document.querySelector<HTMLElement>('.hero');
+        hero?.addEventListener('pointermove', (e) => {
+          const r = hero.getBoundingClientRect();
+          qx?.(((e.clientX - r.left) / r.width - 0.5) * -18);
+          qy?.(((e.clientY - r.top) / r.height - 0.5) * -12);
+        });
+        document.querySelectorAll<HTMLElement>('.magnetic').forEach((el) => {
+          const mx = gsap.quickTo(el, 'x', { duration: 0.5, ease: 'power3.out' });
+          const my = gsap.quickTo(el, 'y', { duration: 0.5, ease: 'power3.out' });
+          el.addEventListener('pointermove', (e) => {
+            const r = el.getBoundingClientRect();
+            mx((e.clientX - r.left - r.width / 2) * 0.25);
+            my((e.clientY - r.top - r.height / 2) * 0.35);
+          });
+          el.addEventListener('pointerleave', () => {
+            mx(0);
+            my(0);
+          });
+        });
+      }
 
       // revelações discretas ao rolar
       ScrollTrigger.batch('.reveal', {
@@ -35,12 +81,6 @@ export default function App() {
         onEnter: (els) => gsap.to(els, { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.08 }),
       });
 
-      // leve paralaxe da medalha
-      gsap.to('.about-medal img', {
-        yPercent: -6,
-        ease: 'none',
-        scrollTrigger: { trigger: '.about-medal', start: 'top bottom', end: 'bottom top', scrub: true },
-      });
     });
     // recalcula posições depois que fontes e imagens carregam
     const refresh = () => ScrollTrigger.refresh();
@@ -60,10 +100,10 @@ export default function App() {
       <Header />
       <main id="conteudo">
         <Hero />
+        <Process />
         <About />
         <Services />
         <Gallery />
-        <Process />
         <Booking />
         <Location />
       </main>

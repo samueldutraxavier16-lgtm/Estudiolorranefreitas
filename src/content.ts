@@ -67,32 +67,22 @@ export const galleryVideo = {
 export const stages = [
   {
     n: 'I',
-    title: 'Unha natural',
-    text: 'O ponto de partida: a sua unha como ela é, com cutícula e brilho natural.',
+    title: 'A base',
+    text: 'Unha natural preparada: cutícula afastada, superfície lixada e formato alinhado.',
   },
   {
     n: 'II',
-    title: 'Preparação',
-    text: 'Cutícula afastada, superfície lixada e borda alinhada. É aqui que a durabilidade começa.',
+    title: 'O gel',
+    text: 'O gel transparente cobre a unha e forma a curvatura que dá resistência e evita quebras.',
   },
   {
     n: 'III',
-    title: 'Aplicação do gel',
-    text: 'Uma fina camada de gel cobre a unha, da base até a ponta, criando aderência.',
+    title: 'A cor',
+    text: 'A cor escolhida por você, aplicada fina e uniforme, curada na cabine.',
   },
   {
     n: 'IV',
-    title: 'Estrutura',
-    text: 'O gel ganha corpo e forma a curvatura que protege a unha e evita quebras.',
-  },
-  {
-    n: 'V',
-    title: 'Nivelamento',
-    text: 'Superfície nivelada e curada na cabine. Nenhuma ondulação aparente.',
-  },
-  {
-    n: 'VI',
-    title: 'Resultado',
-    text: 'Cor, desenho e brilho final. Uma unha resistente que continua parecendo sua.',
+    title: 'O acabamento',
+    text: 'Detalhes à mão e top coat de alto brilho, que sela tudo e deixa a unha espelhada.',
   },
 ] as const;

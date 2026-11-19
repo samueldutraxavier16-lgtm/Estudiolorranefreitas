@@ -3,10 +3,10 @@ import { links, messages, whatsapp } from '../content';
 import { InstagramIcon, WhatsAppIcon } from './Icons';
 
 const nav = [
+  { href: '#processo', label: 'Processo' },
   { href: '#sobre', label: 'Sobre' },
   { href: '#servicos', label: 'Serviços' },
   { href: '#trabalhos', label: 'Trabalhos' },
-  { href: '#processo', label: 'Processo' },
   { href: '#agendar', label: 'Agendar' },
 ];
 
