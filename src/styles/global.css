@@ -1,7 +1,3 @@
-@import '@fontsource/marcellus/index.css';
-@import '@fontsource/cinzel/500.css';
-@import '@fontsource/cinzel/600.css';
-@import '@fontsource-variable/jost/index.css';
 
 /* ------------------------------------------------------------------
    Tokens: paleta tirada da medalha rosé gold e do espaço físico
@@ -21,8 +17,8 @@
   --cream-on-dark: #efe4d8;
   --muted-on-dark: #b3a296;
 
-  --serif: 'Marcellus', 'Optima', Georgia, serif;
-  --sans: 'Jost Variable', 'Futura', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Satoshi', 'Helvetica Neue', Arial, sans-serif;
+  --sans: 'Satoshi', 'Helvetica Neue', Arial, system-ui, sans-serif;
 
   --gutter: clamp(16px, 5vw, 64px);
   --max: 1280px;
@@ -1859,4 +1855,42 @@ em,
   font-weight: 500;
   font-size: 13px;
   letter-spacing: 0.18em;
+}
+
+
+/* ---------- Satoshi em todo o site (servida pela Fontshare) ---------- */
+.wordmark-name,
+.mobile-menu li a {
+  font-family: var(--sans) !important;
+}
+.wordmark-name {
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+.display,
+.h2,
+.story-title,
+.service h3,
+.story-steps h3,
+.location-place,
+.process-outro p,
+.principles h3,
+.hero-ribbon {
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.hero-name {
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+.hero-name .line-2 {
+  font-weight: 300;
+}
+.h2 em,
+.display em,
+.location-place em {
+  font-weight: 300;
+}
+.hero-ribbon {
+  letter-spacing: 0;
 }
