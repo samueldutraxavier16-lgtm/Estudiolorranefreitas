@@ -1642,3 +1642,41 @@ body {
     line-height: 1.45;
   }
 }
+
+/* sem tela presa: a seção rola normalmente e a unha se forma durante a passagem */
+.story-track {
+  height: auto !important;
+}
+.story-sticky {
+  position: relative !important;
+  height: auto !important;
+  overflow: visible !important;
+  padding: 72px 0 56px;
+}
+.story-grid {
+  height: auto !important;
+}
+@media (max-width: 899px) {
+  .story-grid {
+    grid-template-rows: auto auto !important;
+  }
+  .story-stage {
+    height: min(68vw, 360px) !important;
+    margin-top: 0 !important;
+  }
+  .story-steps li {
+    position: relative !important;
+    opacity: 0.4;
+    transform: none !important;
+    margin-bottom: 14px;
+  }
+  .story-steps li.is-active {
+    opacity: 1;
+  }
+}
+@media (min-width: 900px) {
+  .story-stage {
+    height: min(74vh, 680px) !important;
+    margin-top: 0 !important;
+  }
+}

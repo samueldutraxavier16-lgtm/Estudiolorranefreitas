@@ -55,9 +55,10 @@ export default function Process() {
         scene = new NailFrames(host, reduced, () => setLoaded(true));
         st = ScrollTrigger.create({
           trigger: track,
-          start: 'top top',
-          end: 'bottom bottom',
-          scrub: reduced ? false : 0.4,
+          // sem travar a tela: a unha se forma enquanto a seção passa normalmente
+          start: 'top 80%',
+          end: 'bottom 60%',
+          scrub: reduced ? false : true,
           onUpdate: (self) => onProgress(self.progress),
         });
         onProgress(st.progress);

@@ -152,7 +152,7 @@ export class NailFrames {
 
   private tick(dt: number) {
     this.t += dt;
-    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : clamp(dt * 8));
+    this.smoothP += (this.progress - this.smoothP) * (this.reduced ? 1 : clamp(dt * 10));
     if (!this.drag) {
       const k = 9;
       this.off.vx += (-this.off.x * k - this.off.vx * 5) * dt;
@@ -166,9 +166,7 @@ export class NailFrames {
     this.hover.y += (this.hover.ty - this.hover.y) * clamp(dt * 3);
   }
 
-  private frameAt(p: number) {
-    // o vídeo termina um pouco antes do fim da rolagem: a unha pronta fica um tempo na tela
-    const i = Math.round(clamp(p / 0.88) * (COUNT - 1));
+  private nearest(i: number) {
     if (this.images[i]) return this.images[i];
     for (let d = 1; d < COUNT; d++) {
       if (this.images[i - d]) return this.images[i - d];
@@ -181,8 +179,17 @@ export class NailFrames {
     const { ctx, canvas, size } = this;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const img = this.frameAt(this.smoothP);
+    // posição contínua no vídeo; entre dois quadros, mistura os dois (sem "degraus")
+    // a junção das camadas é o começo do vídeo (~40%): ela ganha a maior parte da rolagem
+    const p = clamp(this.smoothP);
+    const v = p < 0.75 ? 0.4 * (p / 0.75) : 0.4 + 0.6 * clamp((p - 0.75) / 0.2);
+    const f = v * (COUNT - 1);
+    const i0 = Math.floor(f);
+    const i1 = Math.min(COUNT - 1, i0 + 1);
+    const mix = f - i0;
+    const img = this.nearest(i0);
     if (!img) return;
+    const next = this.images[i1];
     const live = this.reduced ? 0 : 1;
     // altura toda do quadro = altura da moldura (o fundo do vídeo continua no fundo da moldura)
     // um pouco maior que a moldura: ao mover, as bordas do quadro nunca aparecem
@@ -195,7 +202,13 @@ export class NailFrames {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+    ctx.globalAlpha = 1;
     ctx.drawImage(img, x, y, w, h);
+    if (next && next !== img && mix > 0.01) {
+      ctx.globalAlpha = mix;
+      ctx.drawImage(next, x, y, w, h);
+      ctx.globalAlpha = 1;
+    }
   }
 
   dispose() {
