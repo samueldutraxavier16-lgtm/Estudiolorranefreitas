@@ -1,0 +1,39 @@
+# Publica o site no Firebase Hosting (https://estudiolorranefreitas.web.app)
+# toda vez que houver alteração no branch do projeto.
+# Precisa do segredo FIREBASE_SERVICE_ACCOUNT no repositório (veja o README).
+name: Publicar no Firebase
+
+on:
+  push:
+    branches: [claude/vibrant-dirac-exr485]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Avisar se falta configurar
+        if: env.FIREBASE_SA == ''
+        run: echo "::warning::Segredo FIREBASE_SERVICE_ACCOUNT não configurado; publicação no Firebase ignorada."
+      - uses: actions/checkout@v4
+        if: env.FIREBASE_SA != ''
+      - uses: actions/setup-node@v4
+        if: env.FIREBASE_SA != ''
+        with:
+          node-version: 22
+          cache: npm
+      - name: Gerar o site
+        if: env.FIREBASE_SA != ''
+        run: |
+          npm ci
+          npm run build -- --base=./
+      - name: Publicar
+        if: env.FIREBASE_SA != ''
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: estudiolorranefreitas
+          channelId: live

@@ -14,3 +14,14 @@ npm run build    # gera dist/ pronto para publicar (Vercel, Netlify etc.)
   conforme a rolagem. Para regerar os quadros: `./scripts/extract-nail-merge.sh`.
 
 Pendências: confirmar a lista de serviços com a Lorrane e adicionar mais fotos de trabalhos.
+
+## Firebase Hosting (estudiolorranefreitas.web.app)
+
+O workflow `.github/workflows/firebase-hosting.yml` gera e publica o site a cada
+alteração no branch `claude/vibrant-dirac-exr485`. Configuração única:
+
+1. Criar o projeto `estudiolorranefreitas` em https://console.firebase.google.com
+   e ativar o **Hosting**.
+2. Em Configurações do projeto → Contas de serviço → **Gerar nova chave privada** (baixa um .json).
+3. No GitHub: Settings → Secrets and variables → Actions → **New repository secret**,
+   nome `FIREBASE_SERVICE_ACCOUNT`, valor = conteúdo inteiro do .json.
